@@ -2,51 +2,24 @@
 
 namespace App\Livewire\Finance;
 
-use App\Models\GeneralLedger;
-use App\Models\InvoiceVoucher;
-use App\Models\PaymentVoucher;
-use App\Models\Project;
-use App\Models\ReceiptVoucher;
+use App\Models\MaterialTransaction;
 use Illuminate\Support\Facades\Schema;
-use Livewire\Component;
 
-class FinanceDashboardPage extends Component
+class FinanceDashboardPage extends FinanceBasePage
 {
     public function render()
     {
-        $totalProjects = Project::count();
-
-        $contractValue = Project::sum('contract_amount');
-
-        $totalPayments = PaymentVoucher::whereNotIn('status', ['cancelled', 'draft'])
-            ->sum('gross_amount');
-
-        $totalReceipts = ReceiptVoucher::whereNotIn('status', ['cancelled', 'draft'])
-            ->sum('amount_received');
-
-        $totalInvoices = InvoiceVoucher::whereNotIn('status', ['cancelled', 'draft'])
-            ->sum('grand_total');
-
-        $glEntries = Schema::hasTable('general_ledgers')
-            ? GeneralLedger::count()
-            : 0;
-
-        $outstandingReceivables = max((float) $totalInvoices - (float) $totalReceipts, 0);
-
-        $netCashPosition = (float) $totalReceipts - (float) $totalPayments;
-
-        $outstandingProjectValue = max((float) $contractValue - (float) $totalReceipts, 0);
-
-        return view('livewire.finance.finance-dashboard-page', compact(
-            'totalProjects',
-            'contractValue',
-            'totalPayments',
-            'totalReceipts',
-            'totalInvoices',
-            'outstandingReceivables',
-            'netCashPosition',
-            'outstandingProjectValue',
-            'glEntries'
-        ))->layout('layouts.erp');
+        $inventoryAsset = $this->debit(['Inventory Asset','Inventory','Materials Inventory']);
+        $projectMaterialCost = $this->debit(['Project Material Cost','Materials Issued to Projects','Material Cost']);
+        $materialReceivables = $this->debit(['Material Receivables','Materials Receivable']);
+        $costOfGoodsSold = $this->debit(['COGS','Cost of Goods Sold','Material COGS']);
+        $materialRevenue = $this->credit(['Material Revenue','Materials Revenue','Sales Revenue','Material Sales Revenue']);
+        $netMaterialPosition = $inventoryAsset + $materialReceivables + $projectMaterialCost + $costOfGoodsSold - $materialRevenue;
+        $materialTransactionsPending = Schema::hasTable('material_transactions') ? MaterialTransaction::whereIn('status',['pending','draft','posted'])->count() : 0;
+        $materialTransactionsApproved = Schema::hasTable('material_transactions') ? MaterialTransaction::where('status','approved')->count() : 0;
+        $recentMaterialPostings = $this->materialPostings(20);
+        $materialPostingsCount = $recentMaterialPostings->count();
+        $postingSummary = $this->accountSummary();
+        return view('livewire.finance.finance-dashboard-page', compact('inventoryAsset','projectMaterialCost','materialReceivables','costOfGoodsSold','materialRevenue','netMaterialPosition','materialTransactionsPending','materialTransactionsApproved','materialPostingsCount','recentMaterialPostings','postingSummary') + ['financeNavLinks'=>$this->financeNavLinks()])->layout($this->layoutName());
     }
 }

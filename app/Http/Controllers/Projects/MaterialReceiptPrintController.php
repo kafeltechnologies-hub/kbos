@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\MaterialTransaction;
 
 class MaterialReceiptPrintController extends Controller
@@ -11,17 +12,19 @@ class MaterialReceiptPrintController extends Controller
     {
         $transaction->load([
             'project',
+            'fromProject',
+            'toProject',
+            'paymentVoucher',
+            'receiptVoucher',
             'lines.material',
+            'approvedBy',
         ]);
 
-        abort_if(
-            $transaction->transaction_type !== 'receive',
-            404
-        );
+        $company = Company::first();
 
-        return view(
-            'projects.prints.material-receipt',
-            compact('transaction')
-        );
+        return view('projects.prints.material-receipt', compact(
+            'transaction',
+            'company'
+        ));
     }
 }
